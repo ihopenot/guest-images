@@ -102,15 +102,13 @@ endef
 ### Installing the kernel and S2E payload ###
 
 define BUILD_S2E_IMAGE
-  $(OUTDIR)/$2$1/image.raw.s2e: $(TMPDIR)/$1/image.raw $(STAMPS)/$3 \
+  # install packages
+  $(TMPDIR)/$1/image.raw.s2e.init: $(TMPDIR)/$1/image.raw \
                                 $(SRC)/Linux/s2e_home/launch.sh $(SRC)/Linux/s2e_home/.bash_login \
                                 $(SRC)/Linux/override.conf
 
 	mkdir -p $$(shell dirname $$@)
 	cp --reflink=auto "$$<" "$$@"
-
-	$(call INFO_MSG,[$$@] Installing kernels...)
-	virt-copy-in -a "$$@" $(TMPDIR)/$3/*.deb /home/s2e
 
 	$(call INFO_MSG,[$$@] Installing payload...)
 	virt-copy-in -a "$$@" $(SRC)/Linux/s2e_home/launch.sh $(SRC)/Linux/s2e_home/.bash_login /home/s2e/
@@ -122,6 +120,26 @@ define BUILD_S2E_IMAGE
 	$(QEMU64) -m 4G -no-reboot $(GRAPHICS) $(QEMU_KVM) \
 	    $(call QEMU_HD,0,$$@) \
 	    -serial file:$(OUTDIR)/$2$1/serial.txt
+
+  # install kernels
+  $(OUTDIR)/$2$1/image.raw.s2e: $(TMPDIR)/$1/image.raw.s2e.init $(STAMPS)/$3 \
+                                $(SRC)/Linux/s2e_home/install_kernel.sh 
+	cp --reflink=auto "$$<" "$$@"
+
+	$(call INFO_MSG,[$$@] Installing kernels...)
+	virt-copy-in -a "$$@" $(TMPDIR)/$3/*.deb /home/s2e
+
+	cp "$(SRC)/Linux/s2e_home/install_kernel.sh" "$(TMPDIR)/$1/launch.sh"
+	virt-copy-in -a "$$@" $(TMPDIR)/$1/launch.sh $(SRC)/Linux/s2e_home/.bash_login /home/s2e/
+
+	$(call INFO_MSG,[$$@] Booting disk image...)
+	$(QEMU64) -m 4G -no-reboot $(GRAPHICS) $(QEMU_KVM) \
+	    $(call QEMU_HD,0,$$@) \
+	    -serial file:$(OUTDIR)/$2$1/serial.txt
+
+	# $(QEMU64) -m 4G -no-reboot $(QEMU_KVM) \
+	#     $(call QEMU_HD,0,$$@) \
+	#     -serial file:$(OUTDIR)/$2$1/serial.txt
 
 	virt-copy-in -a "$$@" $(S2E_INSTALL_ROOT)/bin/guest-tools32/* /home/s2e/
 

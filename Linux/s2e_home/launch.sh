@@ -104,17 +104,6 @@ install_systemtap() {
     cd ..
 }
 
-# Install kernels last, the cause downgrade of libc,
-# which will cause issues when installing other packages
-install_kernel() {
-    sudo dpkg -i linux-image*.deb linux-headers*.deb
-
-    MENU_ENTRY="$(grep menuentry /boot/grub/grub.cfg  | grep s2e | cut -d "'" -f 2 | head -n 1)"
-    echo "Default menu entry: $MENU_ENTRY"
-    echo "GRUB_DEFAULT=\"1>$MENU_ENTRY\"" | sudo tee -a /etc/default/grub
-    sudo update-grub
-}
-
 has_cgc_kernel() {
     if ls *.deb | grep -q ckt32-s2e; then
         echo 1
@@ -196,8 +185,6 @@ if [ $(has_cgc_kernel) -eq 1 ]; then
 else
     install_systemtap
 fi
-
-install_kernel
 
 # QEMU will stop (-no-reboot)
 sudo reboot
